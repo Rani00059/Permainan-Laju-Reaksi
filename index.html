@@ -1,0 +1,337 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Chemistry Reaction Rate Game</title>
+    <style>
+        body {
+            font-family: Arial, sans-serif;
+            max-width: 800px;
+            margin: 0 auto;
+            padding: 20px;
+            background-color: #f5f5f5;
+        }
+        .container {
+            background-color: white;
+            padding: 20px;
+            border-radius: 10px;
+            box-shadow: 0 0 10px rgba(0,0,0,0.1);
+        }
+        h1 {
+            color: #2c3e50;
+            text-align: center;
+        }
+        .reaction-container {
+            height: 300px;
+            border: 2px solid #3498db;
+            border-radius: 10px;
+            margin: 20px 0;
+            position: relative;
+            overflow: hidden;
+            background-color: #d6eaf8;
+        }
+        .molecule {
+            position: absolute;
+            width: 20px;
+            height: 20px;
+            border-radius: 50%;
+            background-color: #e74c3c;
+            transition: background-color 0.3s;
+        }
+        .controls {
+            display: grid;
+            grid-template-columns: repeat(2, 1fr);
+            gap: 15px;
+            margin-bottom: 20px;
+        }
+        .control-group {
+            background-color: #eee;
+            padding: 15px;
+            border-radius: 8px;
+        }
+        label {
+            display: block;
+            margin-bottom: 5px;
+            font-weight: bold;
+            color: #2c3e50;
+        }
+        input[type="range"] {
+            width: 100%;
+        }
+        .value-display {
+            font-weight: bold;
+            color: #e74c3c;
+        }
+        .results {
+            margin-top: 20px;
+            padding: 15px;
+            background-color: #2c3e50;
+            color: white;
+            border-radius: 8px;
+            text-align: center;
+        }
+        .rate-display {
+            font-size: 24px;
+            font-weight: bold;
+            color: #f1c40f;
+        }
+        .reaction-info {
+            margin-top: 20px;
+            background-color: #eee;
+            padding: 15px;
+            border-radius: 8px;
+        }
+        button {
+            background-color: #2ecc71;
+            color: white;
+            border: none;
+            padding: 10px 20px;
+            border-radius: 5px;
+            cursor: pointer;
+            font-size: 16px;
+            margin-top: 10px;
+            width: 100%;
+        }
+        button:hover {
+            background-color: #27ae60;
+        }
+        .completed {
+            background-color: #2ecc71;
+        }
+    </style>
+</head>
+<body>
+    <div class="container">
+        <h1>Chemistry Reaction Rate Game</h1>
+        
+        <div class="controls">
+            <div class="control-group">
+                <label for="temperature">Temperature (°C): <span id="temperatureValue" class="value-display">25</span></label>
+                <input type="range" id="temperature" min="0" max="100" value="25">
+                <p>Higher temperature increases molecular movement and collisions.</p>
+            </div>
+            
+            <div class="control-group">
+                <label for="concentration">Concentration (%): <span id="concentrationValue" class="value-display">50</span></label>
+                <input type="range" id="concentration" min="10" max="100" value="50">
+                <p>Higher concentration means more molecules to collide.</p>
+            </div>
+            
+            <div class="control-group">
+                <label for="surfaceArea">Surface Area (units): <span id="surfaceAreaValue" class="value-display">5</span></label>
+                <input type="range" id="surfaceArea" min="1" max="10" value="5">
+                <p>Greater surface area provides more contact points for reaction.</p>
+            </div>
+            
+            <div class="control-group">
+                <label for="catalyst">Catalyst (strength): <span id="catalystValue" class="value-display">0</span></label>
+                <input type="range" id="catalyst" min="0" max="10" value="0">
+                <p>Catalysts lower activation energy without being consumed.</p>
+            </div>
+        </div>
+        
+        <button id="startReaction">Start Reaction</button>
+        
+        <div class="reaction-container" id="reactionContainer"></div>
+        
+        <div class="results">
+            <h2>Reaction Rate</h2>
+            <p>Current rate: <span id="reactionRate" class="rate-display">0.0</span> units/s</p>
+        </div>
+        
+        <div class="reaction-info">
+            <h3>Reaction Factors Guide</h3>
+            <ul>
+                <li><strong>Temperature:</strong> Increases kinetic energy of molecules, leading to more frequent and energetic collisions.</li>
+                <li><strong>Concentration:</strong> Higher concentration means more molecules in the same space, increasing collision frequency.</li>
+                <li><strong>Surface Area:</strong> Increasing surface area exposes more molecules to potential collisions.</li>
+                <li><strong>Catalyst:</strong> Provides an alternative reaction pathway with lower activation energy.</li>
+            </ul>
+        </div>
+    </div>
+
+    <script>
+        // DOM elements
+        const temperatureSlider = document.getElementById('temperature');
+        const concentrationSlider = document.getElementById('concentration');
+        const surfaceAreaSlider = document.getElementById('surfaceArea');
+        const catalystSlider = document.getElementById('catalyst');
+        const temperatureValue = document.getElementById('temperatureValue');
+        const concentrationValue = document.getElementById('concentrationValue');
+        const surfaceAreaValue = document.getElementById('surfaceAreaValue');
+        const catalystValue = document.getElementById('catalystValue');
+        const reactionContainer = document.getElementById('reactionContainer');
+        const reactionRate = document.getElementById('reactionRate');
+        const startButton = document.getElementById('startReaction');
+        
+        // Update displayed values
+        temperatureSlider.addEventListener('input', () => temperatureValue.textContent = temperatureSlider.value);
+        concentrationSlider.addEventListener('input', () => concentrationValue.textContent = concentrationSlider.value);
+        surfaceAreaSlider.addEventListener('input', () => surfaceAreaValue.textContent = surfaceAreaSlider.value);
+        catalystSlider.addEventListener('input', () => catalystValue.textContent = catalystSlider.value);
+        
+        // Game variables
+        let molecules = [];
+        let animationId;
+        let reactionProgress = 0;
+        let collisions = 0;
+        let startTime;
+        let isReactionRunning = false;
+        
+        // Start reaction
+        startButton.addEventListener('click', () => {
+            if (isReactionRunning) {
+                // Stop the current reaction
+                cancelAnimationFrame(animationId);
+                clearMolecules();
+                startButton.textContent = "Start Reaction";
+                isReactionRunning = false;
+                reactionRate.textContent = "0.0";
+                return;
+            }
+            
+            // Start a new reaction
+            clearMolecules();
+            createMolecules();
+            startReaction();
+            startButton.textContent = "Stop Reaction";
+            isReactionRunning = true;
+        });
+        
+        function clearMolecules() {
+            molecules = [];
+            reactionContainer.innerHTML = '';
+            reactionProgress = 0;
+            collisions = 0;
+        }
+        
+        function createMolecules() {
+            const moleculeCount = Math.floor(parseInt(concentrationSlider.value) / 5);
+            
+            for (let i = 0; i < moleculeCount; i++) {
+                const molecule = document.createElement('div');
+                molecule.className = 'molecule';
+                
+                // Random position within container
+                const x = Math.random() * (reactionContainer.offsetWidth - 20);
+                const y = Math.random() * (reactionContainer.offsetHeight - 20);
+                
+                molecule.style.left = `${x}px`;
+                molecule.style.top = `${y}px`;
+                
+                reactionContainer.appendChild(molecule);
+                
+                molecules.push({
+                    element: molecule,
+                    x,
+                    y,
+                    dx: (Math.random() - 0.5) * getSpeed(),
+                    dy: (Math.random() - 0.5) * getSpeed(),
+                    reacted: false
+                });
+            }
+        }
+        
+        function getSpeed() {
+            // Temperature affects molecule speed
+            return 1 + (parseInt(temperatureSlider.value) / 25);
+        }
+        
+        function startReaction() {
+            startTime = Date.now();
+            animateReaction();
+        }
+        
+        function animateReaction() {
+            moveMolecules();
+            checkCollisions();
+            updateReactionRate();
+            
+            if (reactionProgress < 100) {
+                animationId = requestAnimationFrame(animateReaction);
+            } else {
+                startButton.textContent = "Start New Reaction";
+                isReactionRunning = false;
+            }
+        }
+        
+        function moveMolecules() {
+            const containerWidth = reactionContainer.offsetWidth - 20;
+            const containerHeight = reactionContainer.offsetHeight - 20;
+            const speed = getSpeed();
+            
+            molecules.forEach(molecule => {
+                if (molecule.reacted) return;
+                
+                // Update position
+                molecule.x += molecule.dx * speed;
+                molecule.y += molecule.dy * speed;
+                
+                // Bounce off walls
+                if (molecule.x < 0 || molecule.x > containerWidth) {
+                    molecule.dx = -molecule.dx;
+                    molecule.x = Math.max(0, Math.min(molecule.x, containerWidth));
+                }
+                
+                if (molecule.y < 0 || molecule.y > containerHeight) {
+                    molecule.dy = -molecule.dy;
+                    molecule.y = Math.max(0, Math.min(molecule.y, containerHeight));
+                }
+                
+                // Update DOM element position
+                molecule.element.style.left = `${molecule.x}px`;
+                molecule.element.style.top = `${molecule.y}px`;
+            });
+        }
+        
+        function checkCollisions() {
+            const surfaceAreaFactor = parseInt(surfaceAreaSlider.value) / 5;
+            const catalystFactor = parseInt(catalystSlider.value) / 5;
+            const reactionProbability = 0.01 * surfaceAreaFactor * (1 + catalystFactor);
+            
+            // Check for collisions between molecules
+            for (let i = 0; i < molecules.length; i++) {
+                if (molecules[i].reacted) continue;
+                
+                for (let j = i + 1; j < molecules.length; j++) {
+                    if (molecules[j].reacted) continue;
+                    
+                    const dx = molecules[i].x - molecules[j].x;
+                    const dy = molecules[i].y - molecules[j].y;
+                    const distance = Math.sqrt(dx * dx + dy * dy);
+                    
+                    if (distance < 20) { // Collision detected
+                        // Elastic collision - change directions
+                        const tempDx = molecules[i].dx;
+                        const tempDy = molecules[i].dy;
+                        molecules[i].dx = molecules[j].dx;
+                        molecules[i].dy = molecules[j].dy;
+                        molecules[j].dx = tempDx;
+                        molecules[j].dy = tempDy;
+                        
+                        collisions++;
+                        
+                        // Check if reaction occurs
+                        if (Math.random() < reactionProbability) {
+                            molecules[i].reacted = true;
+                            molecules[i].element.classList.add('completed');
+                            molecules[j].reacted = true;
+                            molecules[j].element.classList.add('completed');
+                            reactionProgress += (100 / molecules.length) * 2;
+                        }
+                    }
+                }
+            }
+        }
+        
+        function updateReactionRate() {
+            const elapsedTime = (Date.now() - startTime) / 1000; // seconds
+            if (elapsedTime === 0) return;
+            
+            const rate = (collisions / elapsedTime).toFixed(1);
+            reactionRate.textContent = rate;
+        }
+    </script>
+</body>
+</html>
